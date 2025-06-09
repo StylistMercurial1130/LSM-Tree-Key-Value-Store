@@ -1,15 +1,17 @@
 package memtable
 
-type node[V any] struct {
-	key       int
-	value     V
+import "bytes"
+
+type node struct {
+	key       []byte
+	value     []byte
 	height    int
-	leftNode  *node[V]
-	rightNode *node[V]
+	leftNode  *node
+	rightNode *node
 }
 
-func newNode[V any](key int, value V) *node[V] {
-	_node := new(node[V])
+func newNode(key []byte, value []byte) *node {
+	_node := new(node)
 	_node.key = key
 	_node.value = value
 	_node.height = 1
@@ -17,7 +19,7 @@ func newNode[V any](key int, value V) *node[V] {
 	return _node
 }
 
-func (n *node[V]) getHeight() int {
+func (n *node) getHeight() int {
 	if n == nil {
 		return 0
 	}
@@ -25,7 +27,7 @@ func (n *node[V]) getHeight() int {
 	return n.height
 }
 
-func (n *node[V]) getInOrder() *node[V] {
+func (n *node) getInOrder() *node {
 	if n.leftNode == nil {
 		return n
 	}
@@ -33,7 +35,7 @@ func (n *node[V]) getInOrder() *node[V] {
 	return n.leftNode.getInOrder()
 }
 
-func (n *node[V]) isLeaf() bool {
+func (n *node) isLeaf() bool {
 	if n.leftNode == nil && n.rightNode == nil {
 		return true
 	}
@@ -41,12 +43,12 @@ func (n *node[V]) isLeaf() bool {
 	return false
 }
 
-type AvlTree[V any] struct {
-	rootNode *node[V]
+type AvlTree struct {
+	rootNode *node
 	height   int
 }
 
-func (t *AvlTree[V]) Insert(key int, value V) {
+func (t *AvlTree) Insert(key []byte, value []byte) {
 	if t.rootNode == nil {
 		t.rootNode = newNode(key, value)
 		t.height = t.rootNode.height
@@ -56,14 +58,14 @@ func (t *AvlTree[V]) Insert(key int, value V) {
 	}
 }
 
-func (t *AvlTree[V]) Delete(key int) {
+func (t *AvlTree) Delete(key []byte) {
 	if t.rootNode != nil {
 		t.rootNode = t.delete(key, t.rootNode)
 		t.height = t.rootNode.height
 	}
 }
 
-func rightRotation[V any](current *node[V]) *node[V] {
+func rightRotation(current *node) *node {
 	n := current.leftNode
 	current.leftNode = n.rightNode
 	n.rightNode = current
@@ -74,7 +76,7 @@ func rightRotation[V any](current *node[V]) *node[V] {
 	return n
 }
 
-func leftRotation[V any](current *node[V]) *node[V] {
+func leftRotation(current *node) *node {
 	n := current.rightNode
 	current.rightNode = n.leftNode
 	n.leftNode = current
@@ -85,13 +87,13 @@ func leftRotation[V any](current *node[V]) *node[V] {
 	return n
 }
 
-func (t *AvlTree[V]) insert(key int, value V, current *node[V]) *node[V] {
+func (t *AvlTree) insert(key []byte, value []byte, current *node) *node {
 	if current == nil {
 		current = newNode(key, value)
 		return current
 	}
 
-	if key < current.key {
+	if bytes.Compare(key, current.key) < 0 {
 		current.leftNode = t.insert(key, value, current.leftNode)
 	} else {
 		current.rightNode = t.insert(key, value, current.rightNode)
@@ -103,7 +105,7 @@ func (t *AvlTree[V]) insert(key int, value V, current *node[V]) *node[V] {
 
 	// left bias
 	if balanceFactor > 1 {
-		if key > current.leftNode.key {
+		if bytes.Compare(key, current.leftNode.key) > 0 {
 			current.leftNode = leftRotation(current.leftNode)
 			return rightRotation(current)
 		} else {
@@ -113,7 +115,7 @@ func (t *AvlTree[V]) insert(key int, value V, current *node[V]) *node[V] {
 
 	// right bias
 	if balanceFactor < -1 {
-		if key < current.rightNode.key {
+		if bytes.Compare(key, current.rightNode.key) < 0 {
 			current.rightNode = rightRotation(current.rightNode)
 			return leftRotation(current)
 		} else {
@@ -124,21 +126,21 @@ func (t *AvlTree[V]) insert(key int, value V, current *node[V]) *node[V] {
 	return current
 }
 
-func (t *AvlTree[V]) delete(key int, current *node[V]) *node[V] {
+func (t *AvlTree) delete(key []byte, current *node) *node {
 	if current == nil {
 		return current
 	}
 
 	switch {
-	case key < current.key:
+	case bytes.Compare(key, current.key) < 0:
 		{
 			current.leftNode = t.delete(key, current.leftNode)
 		}
-	case key > current.key:
+	case bytes.Compare(key, current.key) > 0:
 		{
 			current.rightNode = t.delete(key, current.rightNode)
 		}
-	case key == current.key:
+	case bytes.Equal(key, current.key):
 		{
 			if current.isLeaf() {
 				return nil
@@ -164,7 +166,7 @@ func (t *AvlTree[V]) delete(key int, current *node[V]) *node[V] {
 
 	// left bias
 	if balanceFactor > 1 {
-		if key > current.leftNode.key {
+		if bytes.Compare(key, current.leftNode.key) > 0 {
 			current.leftNode = leftRotation(current.leftNode)
 			return rightRotation(current)
 		} else {
@@ -174,7 +176,7 @@ func (t *AvlTree[V]) delete(key int, current *node[V]) *node[V] {
 
 	// right bias
 	if balanceFactor < -1 {
-		if key < current.rightNode.key {
+		if bytes.Compare(key, current.rightNode.key) < 0 {
 			current.rightNode = rightRotation(current.rightNode)
 			return leftRotation(current)
 		} else {
@@ -185,34 +187,34 @@ func (t *AvlTree[V]) delete(key int, current *node[V]) *node[V] {
 	return current
 }
 
-func (t *AvlTree[V]) Search(key int) *V {
+func (t *AvlTree) Search(key []byte) []byte {
 	if t.rootNode != nil {
-		return t.search(key,t.rootNode)
+		return t.search(key, t.rootNode)
 	}
 
 	return nil
 }
 
-func (t *AvlTree[V]) search(key int,root *node[V]) *V {
-	if root.key == key || root == nil {
-		return &root.value
+func (t *AvlTree) search(key []byte, root *node) []byte {
+	if bytes.Equal(root.key, key) || root == nil {
+		return root.value
 	}
 
-	if key > root.key {
-		return t.search(key,root.rightNode)
+	if bytes.Compare(key, root.key) > 0 {
+		return t.search(key, root.rightNode)
 	}
 
-	return t.search(key,root.leftNode)
+	return t.search(key, root.leftNode)
 }
 
-func (t *AvlTree[V]) getInorderForm() []V {
-	var buffer []V
+func (t *AvlTree) getInorderForm() [][]byte {
+	var buffer [][]byte
 	traverseAndAppend(t.rootNode, &buffer)
 
 	return buffer
 }
 
-func traverseAndAppend[V any](n *node[V], buffer *[]V) {
+func traverseAndAppend(n *node, buffer *[][]byte) {
 	if n == nil {
 		return
 	}

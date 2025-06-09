@@ -2,19 +2,32 @@ package memtable
 
 import (
 	"testing"
+	"encoding/binary"
 )
+
+func serialize(value int) []byte {
+	bs := make([]byte,8)
+	binary.LittleEndian.PutUint64(bs,uint64(value))
+
+	return bs
+}
+
+func deserialize(value []byte) int {
+	return int(binary.LittleEndian.Uint64(value))
+}
 
 func Test3ValueInsert(t *testing.T) {
 	var values = [3]int{1, 2, 3}
-	var avlTree AvlTree[int]
+	var avlTree AvlTree
 
 	for _,val := range(values) {
-		avlTree.Insert(val,val)	
+	
+		avlTree.Insert(serialize(val),serialize(val))
 	}
 
 	buff := avlTree.getInorderForm()
 	for i,val := range(buff) {
-		if (i + 1) != val {
+		if (i + 1) != deserialize(val) {
 			t.Logf("buff[%d] = %d, they are not equal! insertion is wrong!",i,val)
 			t.Fail()
 		}
@@ -25,16 +38,16 @@ func Test3ValueInsert(t *testing.T) {
 
 func TestDeletionNonLeafNoEmptyChildren(t *testing.T) {
 	var values = [3]int{1, 2, 3}
-	var avlTree AvlTree[int]
+	var avlTree AvlTree
 
 	for _,val := range(values) {
-		avlTree.Insert(val,val)	
+		avlTree.Insert(serialize(val),serialize(val))
 	}
 
-	avlTree.Delete(1)
+	avlTree.Delete(serialize(1))
 	buff := avlTree.getInorderForm()
 	for i,val := range(buff) {
-		if (i + 1) != val - 1 {
+		if (i + 1) != deserialize(val) - 1 {
 			t.Logf("buff[%d] = %d, they are not equal! insertion is wrong!",i,val)
 			t.Fail()
 		}
