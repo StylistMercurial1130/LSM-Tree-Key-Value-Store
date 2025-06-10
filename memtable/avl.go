@@ -46,15 +46,48 @@ func (n *node) isLeaf() bool {
 type AvlTree struct {
 	rootNode *node
 	height   int
+	count	 int
+	size	 int
+}
+
+
+func (t *AvlTree) GetCount() int {
+	return t.getCount(t.rootNode)
+}
+
+func (t *AvlTree) getCount(rootNode *node) int {
+	if rootNode == nil {
+		return 0
+	}
+
+	return 1 + t.getCount(rootNode.leftNode) + t.getCount(rootNode.rightNode)
+}
+
+func (t *AvlTree) GetSize() int {
+	return t.getSize(t.rootNode)
+}
+
+func (t *AvlTree) getSize(rootNode *node) int {
+	if rootNode == nil {
+		return 0
+	}
+
+	size := len(rootNode.key) + len(rootNode.value)
+
+	return size + t.getSize(rootNode.leftNode) + t.getSize(rootNode.rightNode)
 }
 
 func (t *AvlTree) Insert(key []byte, value []byte) {
 	if t.rootNode == nil {
 		t.rootNode = newNode(key, value)
 		t.height = t.rootNode.height
+		t.count = 1;
+		t.size = len(key) + len(value)
 	} else {
 		t.rootNode = t.insert(key, value, t.rootNode)
 		t.height = t.rootNode.height
+		t.count += 1
+		t.size += len(key) + len(value)
 	}
 }
 
@@ -147,9 +180,9 @@ func (t *AvlTree) delete(key []byte, current *node) *node {
 			}
 
 			if current.leftNode == nil {
-				current = current.rightNode
+				return current.rightNode
 			} else if current.rightNode == nil {
-				current = current.leftNode
+				return current.leftNode
 			} else {
 				temp := current.rightNode.getInOrder()
 				current.key = temp.key
