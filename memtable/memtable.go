@@ -1,19 +1,45 @@
 package memtable
 
-/*
-	memtable 
-		
-*/
+import "LsmStorageEngine/types"
+import "sync"
+
+type Record = types.Record
+
 type Memtable struct {
-	table *AvlTree
-	size  int
+	mtx sync.Mutex
+	avl *AvlTree
 }
 
-func CreateMemtable() *Memtable {
+func NewMemtable() *Memtable {
 	return &Memtable {
-		table : &AvlTree{},
-		size : 0,
+		avl : &AvlTree{},
 	}
 }
+
+func (m *Memtable) Put(r Record) {
+	
+}
+
+func (m *Memtable) Delete(key []byte) {
+
+}
+
+func (m *Memtable) Get(key []byte) []byte {	
+	if val := m.avl.Search(key); val != nil {
+		// found value in the memtable
+		return val
+	} else {
+		
+	}
+}
+
+func (m *Memtable) GetAll() []Record {	
+	return m.avl.GetAll()
+} 
+
+func (m *Memtable) Flush() {
+
+}
+
 
 

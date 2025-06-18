@@ -21,8 +21,7 @@ func Test3ValueInsert(t *testing.T) {
 	var avlTree AvlTree
 
 	for _,val := range(values) {
-	
-		avlTree.Insert(serialize(val),serialize(val))
+		avlTree.Insert(serialize(val),serialize(val),false)
 	}
 
 	buff := avlTree.getInorderForm()
@@ -41,7 +40,7 @@ func TestDeletionNonLeafNoEmptyChildren(t *testing.T) {
 	var avlTree AvlTree
 
 	for _,val := range(values) {
-		avlTree.Insert(serialize(val),serialize(val))
+		avlTree.Insert(serialize(val),serialize(val),false)
 	}
 
 	avlTree.Delete(serialize(1))

@@ -1,22 +1,29 @@
 package memtable
 
-import "bytes"
+import (
+	"LsmStorageEngine/types"
+	"bytes"
+	"unsafe"
+)
 
 type node struct {
 	key       []byte
 	value     []byte
 	height    int
+	tombStone bool
 	leftNode  *node
 	rightNode *node
 }
 
-func newNode(key []byte, value []byte) *node {
-	_node := new(node)
-	_node.key = key
-	_node.value = value
-	_node.height = 1
-
-	return _node
+func newNode(key []byte, value []byte,tombStone bool) *node {
+	return &node {
+		key : key,
+		value : value,
+		height : 1,
+		tombStone : tombStone,
+		leftNode : nil,
+		rightNode : nil,
+	}
 }
 
 func (n *node) getHeight() int {
@@ -72,22 +79,26 @@ func (t *AvlTree) getSize(rootNode *node) int {
 		return 0
 	}
 
-	size := len(rootNode.key) + len(rootNode.value)
+	keyValuesize := len(rootNode.key) + len(rootNode.value)
+
+	structuralInformationSize := 
+		int(unsafe.Sizeof(rootNode.height)) + 
+		int(unsafe.Sizeof(rootNode.leftNode)) + 
+		int(unsafe.Sizeof(rootNode.rightNode)) + 
+		int(unsafe.Sizeof(rootNode.tombStone))
+
+	size := keyValuesize + structuralInformationSize
 
 	return size + t.getSize(rootNode.leftNode) + t.getSize(rootNode.rightNode)
 }
 
-func (t *AvlTree) Insert(key []byte, value []byte) {
+func (t *AvlTree) Insert(key []byte, value []byte,tombStone bool) {
 	if t.rootNode == nil {
-		t.rootNode = newNode(key, value)
+		t.rootNode = newNode(key, value,tombStone)
 		t.height = t.rootNode.height
-		t.count = 1;
-		t.size = len(key) + len(value)
 	} else {
-		t.rootNode = t.insert(key, value, t.rootNode)
+		t.rootNode = t.insert(newNode(key, value, tombStone), t.rootNode)
 		t.height = t.rootNode.height
-		t.count += 1
-		t.size += len(key) + len(value)
 	}
 }
 
@@ -120,16 +131,16 @@ func leftRotation(current *node) *node {
 	return n
 }
 
-func (t *AvlTree) insert(key []byte, value []byte, current *node) *node {
+func (t *AvlTree) insert(n *node, current *node) *node {
 	if current == nil {
-		current = newNode(key, value)
+		current = n
 		return current
 	}
 
-	if bytes.Compare(key, current.key) < 0 {
-		current.leftNode = t.insert(key, value, current.leftNode)
+	if bytes.Compare(n.key, current.key) < 0 {
+		current.leftNode = t.insert(n, current.leftNode)
 	} else {
-		current.rightNode = t.insert(key, value, current.rightNode)
+		current.rightNode = t.insert(n, current.rightNode)
 	}
 
 	current.height = 1 + max(current.leftNode.getHeight(), current.rightNode.getHeight())
@@ -138,7 +149,7 @@ func (t *AvlTree) insert(key []byte, value []byte, current *node) *node {
 
 	// left bias
 	if balanceFactor > 1 {
-		if bytes.Compare(key, current.leftNode.key) > 0 {
+		if bytes.Compare(n.key, current.leftNode.key) > 0 {
 			current.leftNode = leftRotation(current.leftNode)
 			return rightRotation(current)
 		} else {
@@ -148,7 +159,7 @@ func (t *AvlTree) insert(key []byte, value []byte, current *node) *node {
 
 	// right bias
 	if balanceFactor < -1 {
-		if bytes.Compare(key, current.rightNode.key) < 0 {
+		if bytes.Compare(n.key, current.rightNode.key) < 0 {
 			current.rightNode = rightRotation(current.rightNode)
 			return leftRotation(current)
 		} else {
@@ -229,7 +240,11 @@ func (t *AvlTree) Search(key []byte) []byte {
 }
 
 func (t *AvlTree) search(key []byte, root *node) []byte {
-	if bytes.Equal(root.key, key) || root == nil {
+	if root == nil {
+		return nil
+	}
+
+	if bytes.Equal(root.key, key) {
 		return root.value
 	}
 
@@ -245,6 +260,30 @@ func (t *AvlTree) getInorderForm() [][]byte {
 	traverseAndAppend(t.rootNode, &buffer)
 
 	return buffer
+}
+
+func (t *AvlTree) GetAll() []Record {
+	var buffer []Record
+	t.getAll(t.rootNode,&buffer)
+
+	return buffer
+}
+
+func (t *AvlTree) getAll(n *node,buffer *[]Record) {
+	if n == nil {
+		return;	
+	}
+
+	t.getAll(n.leftNode,buffer)
+
+	record := Record {
+		Key : n.key, 
+		Value : n.value, 
+		TombStone: n.tombStone,
+	}
+	*buffer = append(*buffer,record)
+
+	t.getAll(n.rightNode,buffer)
 }
 
 func traverseAndAppend(n *node, buffer *[][]byte) {
