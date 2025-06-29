@@ -118,6 +118,97 @@ func (s *SSTable) Close() {
 	s.file = nil
 }
 
+func extractKey(reader *bufio.Reader) ([]byte, error) {
+	arr := make([]byte, 8)
+	if _, err := reader.Read(arr); err != nil {
+		return []byte{}, &SSTableError{
+			errCode: SSTBALE_READ_ERROR,
+			msg:     fmt.Sprintf("sstable key size reading error read error : %s", err.Error()),
+		}
+	}
+
+	keySize := binary.LittleEndian.Uint64(arr)
+	sstableKey := make([]byte, keySize)
+	if _, err := reader.Read(sstableKey); err != nil {
+		return []byte{}, &SSTableError{
+			errCode: SSTBALE_READ_ERROR,
+			msg:     fmt.Sprintf("sstable key read error : %s", err.Error()),
+		}
+	}
+
+	return sstableKey, nil
+}
+
+func extractValue(reader *bufio.Reader) ([]byte, error) {
+	arr := make([]byte, 8)
+	if _, err := reader.Read(arr); err != nil {
+		return []byte{}, &SSTableError{
+			errCode: SSTBALE_READ_ERROR,
+			msg:     fmt.Sprintf("sstable value size reading error read error : %s", err.Error()),
+		}
+	}
+
+	valueSize := binary.LittleEndian.Uint64(arr)
+	sstableValue := make([]byte, valueSize)
+	if _, err := reader.Read(sstableValue); err != nil {
+		return []byte{}, &SSTableError{
+			errCode: SSTBALE_READ_ERROR,
+			msg:     fmt.Sprintf("sstable value reading error read error : %s", err.Error()),
+		}
+	}
+
+	return sstableValue, nil
+}
+
+func extractTombstome(reader *bufio.Reader) (bool, error) {
+	var tombStone bool = false
+	if tombStoneByte, err := reader.ReadByte(); err != nil {
+		return tombStone, &SSTableError{
+			errCode: SSTBALE_READ_ERROR,
+			msg:     fmt.Sprintf("sstable tombstone reading error read error : %s", err.Error()),
+		}
+
+	} else {
+		if tombStoneByte == 1 {
+			tombStone = true
+		} else {
+			tombStone = false
+		}
+	}
+
+	return tombStone, nil
+}
+
+func extractRecord(file *os.File, offset int) (types.Record, error) {
+	_, err := file.Seek(int64(offset), 0)
+
+	if err != nil {
+		return types.Record{}, &SSTableError{
+			errCode: SSTABLE_SEEK_ERROR,
+			msg:     fmt.Sprintf("sstable seek error : %s", err.Error()),
+		}
+	}
+
+	reader := bufio.NewReader(file)
+
+	var key, value []byte
+	var tombStone bool
+
+	if key, err = extractKey(reader); err != nil {
+		return types.Record{}, err
+	}
+
+	if value, err = extractValue(reader); err != nil {
+		return types.Record{}, err
+	}
+
+	if tombStone, err = extractTombstome(reader); err != nil {
+		return types.Record{}, nil
+	}
+
+	return types.NewRecord(key, value, tombStone), nil
+}
+
 func (s *SSTable) get(key []byte) (types.Record, error) {
 	if record, exists := s.lookUpTable.get(key); !exists {
 		return types.Record{}, &SSTableError{
@@ -125,65 +216,6 @@ func (s *SSTable) get(key []byte) (types.Record, error) {
 			msg:     fmt.Sprintf("key %s does not exist !", key),
 		}
 	} else {
-		_, err := s.file.Seek(int64(record.offset), 0)
-
-		if err != nil {
-			return types.Record{}, &SSTableError{
-				errCode: SSTABLE_SEEK_ERROR,
-				msg:     fmt.Sprintf("sstable seek error : %s", err.Error()),
-			}
-		}
-
-		reader := bufio.NewReader(s.file)
-
-		arr := make([]byte, 8)
-		if _, err := reader.Read(arr); err != nil {
-			return types.Record{}, &SSTableError{
-				errCode: SSTBALE_READ_ERROR,
-				msg:     fmt.Sprintf("sstable key size reading error read error : %s", err.Error()),
-			}
-		}
-
-		keySize := binary.LittleEndian.Uint64(arr)
-		sstableKey := make([]byte, keySize)
-		if _, err := reader.Read(sstableKey); err != nil {
-			return types.Record{}, &SSTableError{
-				errCode: SSTBALE_READ_ERROR,
-				msg:     fmt.Sprintf("sstable key read error : %s", err.Error()),
-			}
-		}
-
-		arr = arr[:0]
-		if _, err := reader.Read(arr); err != nil {
-			return types.Record{}, &SSTableError{
-				errCode: SSTBALE_READ_ERROR,
-				msg:     fmt.Sprintf("sstable value size reading error read error : %s", err.Error()),
-			}
-		}
-
-		valueSize := binary.LittleEndian.Uint64(arr)
-		sstableValue := make([]byte, valueSize)
-		if _, err = reader.Read(sstableValue); err != nil {
-			return types.Record{}, &SSTableError{
-				errCode: SSTBALE_READ_ERROR,
-				msg:     fmt.Sprintf("sstable value reading error read error : %s", err.Error()),
-			}
-		}
-
-		var tombStone bool = false
-		if tombStoneByte, err := reader.ReadByte(); err != nil {
-			return types.Record{}, &SSTableError{
-				errCode: SSTBALE_READ_ERROR,
-				msg:     fmt.Sprintf("sstable tombstone reading error read error : %s", err.Error()),
-			}
-		} else {
-			if tombStoneByte == 1 {
-				tombStone = true
-			} else {
-				tombStone = false
-			}
-		}
-
-		return types.NewRecord(sstableKey, sstableValue, tombStone), nil
+		return extractRecord(s.file, record.offset)
 	}
 }
