@@ -1,4 +1,4 @@
-package memtable
+package storageengine
 
 import (
 	"LsmStorageEngine/types"
@@ -15,14 +15,14 @@ type node struct {
 	rightNode *node
 }
 
-func newNode(key []byte, value []byte,tombStone bool) *node {
-	return &node {
-		key : key,
-		value : value,
-		height : 1,
-		tombStone : tombStone,
-		leftNode : nil,
-		rightNode : nil,
+func newNode(key []byte, value []byte, tombStone bool) *node {
+	return &node{
+		key:       key,
+		value:     value,
+		height:    1,
+		tombStone: tombStone,
+		leftNode:  nil,
+		rightNode: nil,
 	}
 }
 
@@ -53,10 +53,23 @@ func (n *node) isLeaf() bool {
 type AvlTree struct {
 	rootNode *node
 	height   int
-	count	 int
-	size	 int
+	count    int
+	size     int
 }
 
+type AvlTreeError struct {
+	errCode int
+	msg     string
+}
+
+const (
+	AVL_KEY_DOES_NOT_EXIST = 1
+	AVL_TREE_EMPTY         = 2
+)
+
+func (e *AvlTreeError) Error() string {
+	return e.msg
+}
 
 func (t *AvlTree) GetCount() int {
 	return t.getCount(t.rootNode)
@@ -81,20 +94,24 @@ func (t *AvlTree) getSize(rootNode *node) int {
 
 	keyValuesize := len(rootNode.key) + len(rootNode.value)
 
-	structuralInformationSize := 
-		int(unsafe.Sizeof(rootNode.height)) + 
-		int(unsafe.Sizeof(rootNode.leftNode)) + 
-		int(unsafe.Sizeof(rootNode.rightNode)) + 
-		int(unsafe.Sizeof(rootNode.tombStone))
+	structuralInformationSize :=
+		int(unsafe.Sizeof(rootNode.height)) +
+			int(unsafe.Sizeof(rootNode.leftNode)) +
+			int(unsafe.Sizeof(rootNode.rightNode)) +
+			int(unsafe.Sizeof(rootNode.tombStone))
 
 	size := keyValuesize + structuralInformationSize
 
 	return size + t.getSize(rootNode.leftNode) + t.getSize(rootNode.rightNode)
 }
 
-func (t *AvlTree) Insert(key []byte, value []byte,tombStone bool) {
+func (t *AvlTree) InsertRecord(r types.Record) {
+	t.Insert(r.Key, r.Value, r.TombStone)
+}
+
+func (t *AvlTree) Insert(key []byte, value []byte, tombStone bool) {
 	if t.rootNode == nil {
-		t.rootNode = newNode(key, value,tombStone)
+		t.rootNode = newNode(key, value, tombStone)
 		t.height = t.rootNode.height
 	} else {
 		t.rootNode = t.insert(newNode(key, value, tombStone), t.rootNode)
@@ -231,27 +248,36 @@ func (t *AvlTree) delete(key []byte, current *node) *node {
 	return current
 }
 
-func (t *AvlTree) Search(key []byte) []byte {
+func (t *AvlTree) Search(key []byte) (types.Record, error) {
 	if t.rootNode != nil {
-		return t.search(key, t.rootNode)
+		if value, tombstone := t.search(key, t.rootNode); value == nil {
+			return types.Record{}, &AvlTreeError{
+				errCode: AVL_KEY_DOES_NOT_EXIST,
+				msg:     "key does not exist in avl tree",
+			}
+		} else {
+			return types.NewRecord(key, value, tombstone), nil
+		}
 	}
 
-	return nil
+	return types.Record{}, &AvlTreeError{
+		errCode: AVL_TREE_EMPTY,
+		msg:     "avl tree is empty",
+	}
 }
 
-func (t *AvlTree) search(key []byte, root *node) []byte {
+func (t *AvlTree) search(key []byte, root *node) ([]byte, bool) {
 	if root == nil {
-		return nil
+		return nil, false
 	}
 
 	if bytes.Equal(root.key, key) {
-		return root.value
+		return root.value, root.tombStone
 	}
 
-	if bytes.Compare(key, root.key) > 0 {
+	if bytes.Compare(key, root.key) == 1 {
 		return t.search(key, root.rightNode)
 	}
-
 	return t.search(key, root.leftNode)
 }
 
@@ -262,28 +288,24 @@ func (t *AvlTree) getInorderForm() [][]byte {
 	return buffer
 }
 
-func (t *AvlTree) GetAll() []Record {
-	var buffer []Record
-	t.getAll(t.rootNode,&buffer)
+func (t *AvlTree) GetAll() []types.Entry {
+	var buffer []types.Entry
+	t.getAll(t.rootNode, &buffer)
 
 	return buffer
 }
 
-func (t *AvlTree) getAll(n *node,buffer *[]Record) {
+func (t *AvlTree) getAll(n *node, buffer *[]types.Entry) {
 	if n == nil {
-		return;	
+		return
 	}
 
-	t.getAll(n.leftNode,buffer)
+	t.getAll(n.leftNode, buffer)
 
-	record := Record {
-		Key : n.key, 
-		Value : n.value, 
-		TombStone: n.tombStone,
-	}
-	*buffer = append(*buffer,record)
+	record := types.NewEntry(n.key, n.value, n.tombStone)
+	*buffer = append(*buffer, record)
 
-	t.getAll(n.rightNode,buffer)
+	t.getAll(n.rightNode, buffer)
 }
 
 func traverseAndAppend(n *node, buffer *[][]byte) {

@@ -6,9 +6,9 @@ import (
 )
 
 type Memtable struct {
-	mtx     sync.Mutex
-	avl     *AvlTree
-	sstable *SSTable
+	mtx          sync.Mutex
+	avl          *AvlTree
+	memtableSize int
 }
 
 func NewMemtable() *Memtable {
@@ -18,7 +18,10 @@ func NewMemtable() *Memtable {
 }
 
 func (m *Memtable) Put(r types.Record) {
+	m.avl.InsertRecord(r)
 
+	if m.avl.GetSize() >= m.memtableSize {
+	}
 }
 
 func (m *Memtable) Delete(key []byte) {
@@ -31,7 +34,8 @@ func (m *Memtable) Get(key []byte) (types.Record, error) {
 		switch err.(*AvlTreeError).errCode {
 		case AVL_KEY_DOES_NOT_EXIST:
 			{
-				// search the sparse index and load an sstable and search for the key
+				// search the sstables to find for the key
+
 			}
 		case AVL_TREE_EMPTY:
 			{
@@ -43,10 +47,6 @@ func (m *Memtable) Get(key []byte) (types.Record, error) {
 	return record, nil
 }
 
-func (m *Memtable) GetAll() []types.Record {
+func (m *Memtable) GetAll() []types.Entry {
 	return m.avl.GetAll()
-}
-
-func (m *Memtable) Flush() {
-
 }
