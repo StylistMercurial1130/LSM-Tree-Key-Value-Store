@@ -1,4 +1,4 @@
-package storageengine
+package mem
 
 import (
 	"LsmStorageEngine/types"
@@ -288,21 +288,21 @@ func (t *AvlTree) getInorderForm() [][]byte {
 	return buffer
 }
 
-func (t *AvlTree) GetAll() []types.Entry {
-	var buffer []types.Entry
+func (t *AvlTree) GetAll() []types.Record {
+	var buffer []types.Record
 	t.getAll(t.rootNode, &buffer)
 
 	return buffer
 }
 
-func (t *AvlTree) getAll(n *node, buffer *[]types.Entry) {
+func (t *AvlTree) getAll(n *node, buffer *[]types.Record) {
 	if n == nil {
 		return
 	}
 
 	t.getAll(n.leftNode, buffer)
 
-	record := types.NewEntry(n.key, n.value, n.tombStone)
+	record := types.NewRecord(n.key, n.value, n.tombStone)
 	*buffer = append(*buffer, record)
 
 	t.getAll(n.rightNode, buffer)

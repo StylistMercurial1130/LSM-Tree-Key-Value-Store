@@ -6,11 +6,11 @@ import (
 )
 
 type Data struct {
-	entries       []types.Entry
+	entries       []types.Record
 	dataBlockSize int
 }
 
-func NewDataBlock(entries []types.Entry) *Data {
+func NewDataBlock(entries []types.Record) *Data {
 
 	totalBlockSize := 0
 	for _, entry := range entries {
@@ -26,27 +26,26 @@ func NewDataBlock(entries []types.Entry) *Data {
 func (d *Data) Encode() []byte {
 	var buffer []byte
 
-	var scratchPad []byte
 	for _, entry := range d.entries {
 		// key size
-		binary.LittleEndian.PutUint64(scratchPad, uint64(len(entry.Key)))
-		buffer = append(buffer, scratchPad...)
-		scratchPad = scratchPad[:0]
+		var keyLenScratchPad []byte = make([]byte, 8)
+		binary.LittleEndian.PutUint64(keyLenScratchPad, uint64(len(entry.Key)))
+		buffer = append(buffer, keyLenScratchPad...)
 
 		// key
 		buffer = append(buffer, entry.Key...)
 
 		// value size
-		binary.LittleEndian.PutUint64(scratchPad, uint64(len(entry.Value)))
-		buffer = append(buffer, scratchPad...)
-		scratchPad = scratchPad[:0]
+		var valueSizeScratchPad []byte = make([]byte, 8)
+		binary.LittleEndian.PutUint64(valueSizeScratchPad, uint64(len(entry.Value)))
+		buffer = append(buffer, valueSizeScratchPad...)
 
 		// value
 		buffer = append(buffer, entry.Value...)
 
 		// tombstone
 		var b byte
-		if entry.Tombstone {
+		if entry.TombStone {
 			b = 1
 		} else {
 			b = 0

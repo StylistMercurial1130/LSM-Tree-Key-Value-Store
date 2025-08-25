@@ -1,6 +1,8 @@
 package types
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
 type Entry struct {
 	Key       []byte

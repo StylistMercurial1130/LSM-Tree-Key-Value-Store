@@ -1,8 +1,11 @@
 package disk
 
 import (
+	"LsmStorageEngine/types"
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"io"
 	"unsafe"
 )
 
@@ -22,17 +25,74 @@ func NewIndexBlock(d *Data) *TableIndex {
 	}
 
 	offset := 0
-	for _, entry := range d.entries {
-		tableIndex.lookUpTable = append(tableIndex.lookUpTable, indexRecord{
+	indexSize := 0
+	for index, entry := range d.entries {
+		tableIndex.lookUpTable[index] = indexRecord{
 			key:    entry.Key,
 			offset: offset,
-		})
+		}
 
 		offset += int(unsafe.Sizeof(0))*2 + len(entry.Key) + len(entry.Value) + 1
+		indexSize += int(unsafe.Sizeof(0))*2 + len(entry.Key)
 	}
-	tableIndex.tableIndexsize = offset
+
+	tableIndex.tableIndexsize = indexSize
 
 	return tableIndex
+}
+
+func NewIndexBlockFromBuffer(buffer *bytes.Reader) (TableIndex, error) {
+	var indexRecords []indexRecord
+	offset := 0
+
+	for {
+		sizeBuffer := make([]byte, unsafe.Sizeof(0))
+
+		_, err := buffer.Read(sizeBuffer)
+
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+
+			return TableIndex{}, types.NewEngineError(
+				types.INDEX_BLOCK_DECODE_ERROR,
+				fmt.Sprintf("error decoding index block key size : %s", err.Error()),
+			)
+		}
+
+		keySize := binary.LittleEndian.Uint64(sizeBuffer)
+		key := make([]byte, keySize)
+
+		_, err = buffer.Read(key)
+
+		if err != nil {
+			return TableIndex{}, types.NewEngineError(
+				types.INDEX_BLOCK_DECODE_ERROR,
+				fmt.Sprintf("error decoding index block key : %s", err.Error()),
+			)
+		}
+
+		_, err = buffer.Read(sizeBuffer)
+
+		if err != nil {
+			return TableIndex{}, types.NewEngineError(
+				types.INDEX_BLOCK_DECODE_ERROR,
+				fmt.Sprintf("error decoding index block offset point : %s", err.Error()),
+			)
+		}
+
+		offsetPoint := binary.LittleEndian.Uint64(sizeBuffer)
+
+		indexRecords = append(indexRecords, indexRecord{
+			key:    key,
+			offset: int(offsetPoint),
+		})
+
+		offset += int(unsafe.Sizeof(0))*2 + len(key)
+	}
+
+	return TableIndex{lookUpTable: indexRecords, tableIndexsize: offset}, nil
 }
 
 func (ti *TableIndex) Encode() []byte {
@@ -41,14 +101,14 @@ func (ti *TableIndex) Encode() []byte {
 	for _, record := range ti.lookUpTable {
 		var indexField []byte
 
-		var keySize []byte
-		binary.LittleEndian.AppendUint64(keySize, uint64(len(record.key)))
+		keySize := make([]byte, unsafe.Sizeof(0))
+		binary.LittleEndian.PutUint64(keySize, uint64(len(record.key)))
 		indexField = append(indexField, keySize...)
 
 		indexField = append(indexField, record.key...)
 
-		var dataOffsetPoint []byte
-		binary.LittleEndian.AppendUint64(dataOffsetPoint, uint64(record.offset))
+		dataOffsetPoint := make([]byte, unsafe.Sizeof(0))
+		binary.LittleEndian.PutUint64(dataOffsetPoint, uint64(record.offset))
 		indexField = append(indexField, dataOffsetPoint...)
 
 		buffer = append(buffer, indexField...)
@@ -59,17 +119,18 @@ func (ti *TableIndex) Encode() []byte {
 
 func (ti *TableIndex) lookUpKeyOffset(key []byte) (int, bool) {
 	start := 0
-	end := len(*&ti.lookUpTable) - 1
+	end := len(ti.lookUpTable) - 1
 
 	for start < end {
 		mid := start + ((end - start) / 2)
-		compare := bytes.Compare(key, (*&ti.lookUpTable)[mid].key)
+		compare := bytes.Compare(key, ti.lookUpTable[mid].key)
 
-		if compare == 0 {
-			return (*&ti.lookUpTable)[mid].offset, true
-		} else if compare == -1 {
+		switch compare {
+		case 0:
+			return ti.lookUpTable[mid].offset, true
+		case -1:
 			end = mid - 1
-		} else if compare == 1 {
+		case 1:
 			start = mid + 1
 		}
 	}

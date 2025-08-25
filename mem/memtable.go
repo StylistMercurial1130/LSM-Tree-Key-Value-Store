@@ -1,6 +1,11 @@
-package storageengine
+/*
+	TODO! : add disk manager creation/initialization and checks
+*/
+
+package mem
 
 import (
+	"LsmStorageEngine/disk"
 	"LsmStorageEngine/types"
 	"sync"
 )
@@ -8,6 +13,7 @@ import (
 type Memtable struct {
 	mtx          sync.Mutex
 	avl          *AvlTree
+	dm           *disk.DiskManager
 	memtableSize int
 }
 
@@ -17,11 +23,18 @@ func NewMemtable() *Memtable {
 	}
 }
 
-func (m *Memtable) Put(r types.Record) {
+func (m *Memtable) Put(r types.Record) error {
+	m.mtx.Lock()
+
 	m.avl.InsertRecord(r)
 
 	if m.avl.GetSize() >= m.memtableSize {
+		return m.dm.Flush(m.avl.GetAll())
 	}
+
+	m.mtx.Unlock()
+
+	return nil
 }
 
 func (m *Memtable) Delete(key []byte) {
@@ -29,24 +42,29 @@ func (m *Memtable) Delete(key []byte) {
 }
 
 func (m *Memtable) Get(key []byte) (types.Record, error) {
-	var record types.Record
-	if record, err := m.avl.Search(key); err != nil {
-		switch err.(*AvlTreeError).errCode {
-		case AVL_KEY_DOES_NOT_EXIST:
-			{
-				// search the sstables to find for the key
+	m.mtx.Lock()
 
-			}
-		case AVL_TREE_EMPTY:
-			{
-				return types.Record{}, err
+	record, err := m.avl.Search(key)
+
+	if err != nil {
+		if status, ok := err.(*types.EngineError); ok {
+			if status.GetErrorCode() == AVL_KEY_DOES_NOT_EXIST {
+				record, err = m.dm.Get(key)
+
+				if err != nil {
+					return types.Record{}, err
+				} else {
+					return record, nil
+				}
 			}
 		}
 	}
 
+	m.mtx.Unlock()
+
 	return record, nil
 }
 
-func (m *Memtable) GetAll() []types.Entry {
+func (m *Memtable) GetAll() []types.Record {
 	return m.avl.GetAll()
 }
