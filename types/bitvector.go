@@ -2,7 +2,6 @@ package types
 
 import (
 	"fmt"
-	"math"
 )
 
 type BitVector struct {
@@ -17,7 +16,7 @@ func NewBitVector(length int) BitVector {
 	}
 }
 
-func (b *BitVector) set(index int) error {
+func (b *BitVector) Set(index int) error {
 	if index > b.length {
 		return NewEngineError(
 			BIT_VECTOR_OUT_OF_BOUNDS,
@@ -45,4 +44,8 @@ func (b *BitVector) IsSet(index int) (bool, error) {
 	i := index % 8
 
 	return (b.vector[pos]&(1<<i) != 0), nil
+}
+
+func (b *BitVector) Bytes() []byte {
+	return b.vector
 }
