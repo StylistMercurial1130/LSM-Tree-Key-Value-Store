@@ -12,6 +12,7 @@ const (
 	TABLE_MERGE_ERROR          = 8
 	INDEX_BLOCK_DECODE_ERROR   = 9
 	LEVEL_GET_ERROR            = 10
+	BIT_VECTOR_OUT_OF_BOUNDS   = 11
 )
 
 type EngineError struct {
