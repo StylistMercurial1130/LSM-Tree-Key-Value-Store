@@ -29,6 +29,27 @@ func NewBloomFilter(n float64, p float64) BloomFilter {
 	}
 }
 
+func NewBloomFilterFromEntries(n float64, p float64, entries []types.Record) BloomFilter {
+	m := (-1 * n * math.Round(math.Log(p))) / math.Pow(math.Log(2), 2)
+	k := (m / n) * math.Log(2)
+
+	bf := BloomFilter{
+		bitSet:            types.NewBitVector(int(math.Ceil(m))),
+		bitSetSize:        int(m),
+		hashFunctionCount: int(k),
+	}
+
+	for _, entry := range entries {
+		bf.Put(entry.Key)
+	}
+
+	return bf
+}
+
+func (bf *BloomFilter) getBufferSize() int {
+	return len(bf.bitSet.Bytes())
+}
+
 func (bf *BloomFilter) Put(key []byte) {
 	for seed := range bf.hashFunctionCount {
 		setLocation := murmur3.Sum64WithSeed(key, uint32(seed)) % uint64(bf.bitSetSize)

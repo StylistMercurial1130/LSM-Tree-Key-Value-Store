@@ -11,20 +11,30 @@ import (
 	"github.com/google/uuid"
 )
 
+/*
+TODO : feed these values as config instead  of constants
+*/
+const (
+	m = 10000
+	p = 0.01
+)
+
 type Table struct {
 	indexBlock *TableIndex
+	boolFilter *BloomFilter
 	filePath   string
 	metaData   MetaData
 }
 
 type MetaData struct {
-	indexBlockSize int
-	dataBlockSize  int
-	level          int
+	indexBlockSize  int
+	dataBlockSize   int
+	bloomFilterSize int
+	level           int
 }
 
 func CreateNewTableToDisk(entries []types.Record, dir string) (*Table, error) {
-	tableIndex, metaData, tableContent := Flush(entries)
+	tableIndex, bloomFilter, metaData, tableContent := Flush(entries)
 	fileName := fmt.Sprintf("%s//L%d_%s.data", dir, metaData.level, uuid.New().String())
 
 	fd, err := os.Create(fileName)
@@ -40,19 +50,22 @@ func CreateNewTableToDisk(entries []types.Record, dir string) (*Table, error) {
 
 	return &Table{
 		indexBlock: tableIndex,
+		boolFilter: bloomFilter,
 		filePath:   fileName,
 		metaData:   metaData,
 	}, nil
 }
 
-func Flush(entries []types.Record) (*TableIndex, MetaData, []byte) {
+func Flush(entries []types.Record) (*TableIndex, *BloomFilter, MetaData, []byte) {
 	dataBlock := NewDataBlock(entries)
+	bloomFilter := NewBloomFilterFromEntries(m, p, entries)
 	indexBlock := NewIndexBlock(dataBlock)
 
 	metaData := MetaData{
-		indexBlockSize: indexBlock.tableIndexsize,
-		dataBlockSize:  dataBlock.dataBlockSize,
-		level:          0,
+		indexBlockSize:  indexBlock.tableIndexsize,
+		dataBlockSize:   dataBlock.dataBlockSize,
+		bloomFilterSize: bloomFilter.getBufferSize(),
+		level:           0,
 	}
 
 	var buffer []byte
@@ -62,15 +75,18 @@ func Flush(entries []types.Record) (*TableIndex, MetaData, []byte) {
 	binary.LittleEndian.PutUint64(s, uint64(metaData.indexBlockSize))
 	buffer = append(buffer, s...)
 
+	binary.LittleEndian.PutUint64(s, uint64(metaData.bloomFilterSize))
+	buffer = append(buffer, s...)
+
 	binary.LittleEndian.PutUint64(s, uint64(metaData.dataBlockSize))
 	buffer = append(buffer, binary.LittleEndian.AppendUint64(s, uint64(metaData.dataBlockSize))...)
 
 	binary.LittleEndian.PutUint64(s, uint64(metaData.level))
 	buffer = append(buffer, binary.LittleEndian.AppendUint64(s, uint64(metaData.level))...)
 
-	buffer = append(append(buffer, indexBlock.Encode()...), dataBlock.Encode()...)
+	buffer = append(append(append(buffer, indexBlock.Encode()...), bloomFilter.Serialize()...), dataBlock.Encode()...)
 
-	return indexBlock, metaData, buffer
+	return indexBlock, &bloomFilter, metaData, buffer
 }
 
 func (t *Table) get(key []byte) (types.Record, error) {
