@@ -1,7 +1,10 @@
 package types
 
 import (
+	"LsmStorageEngine/types"
 	"fmt"
+	"io"
+	"os"
 )
 
 type BitVector struct {
@@ -12,8 +15,32 @@ type BitVector struct {
 func NewBitVector(length int) BitVector {
 	return BitVector{
 		vector: make([]byte, (length+7)/8),
-		length: length,
+		length: (length + 7) / 8,
 	}
+}
+
+func NewBitSetVectorFromBytes(bytes *[]byte) BitVector {
+	return BitVector{
+		vector: *bytes,
+		length: len(*bytes),
+	}
+}
+
+func NewBitSetVectorFromFile(file *os.File, length int) (BitVector, error) {
+	bytes := make([]byte, length)
+	_, err := io.ReadFull(file, bytes)
+
+	if err != nil && err != io.EOF {
+		return BitVector{}, types.NewEngineError(
+			types.TABLE_READ_FILE_ERROR,
+			fmt.Sprintf("file read error : %s", err.Error()),
+		)
+	}
+
+	return BitVector{
+		vector: bytes,
+		length: length,
+	}, nil
 }
 
 func (b *BitVector) Set(index int) error {

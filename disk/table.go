@@ -33,6 +33,65 @@ type MetaData struct {
 	level           int
 }
 
+func ReadMetaDataFromFile(r io.Reader) (MetaData, error) {
+	var indexBlockSize int
+	var dataBlockSize int
+	var bloomFilterSize int
+	var level int
+
+	err := binary.Read(r, binary.LittleEndian, &indexBlockSize)
+
+	if err != nil {
+		return MetaData{}, types.NewEngineError(
+			types.TABLE_READ_FILE_ERROR,
+			fmt.Sprintf("invalid file passed !"),
+		)
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &indexBlockSize)
+
+	if err != nil {
+		return MetaData{}, types.NewEngineError(
+			types.TABLE_READ_FILE_ERROR,
+			fmt.Sprintf("invalid file passed !"),
+		)
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &dataBlockSize)
+
+	if err != nil {
+		return MetaData{}, types.NewEngineError(
+			types.TABLE_READ_FILE_ERROR,
+			fmt.Sprintf("invalid file passed !"),
+		)
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &bloomFilterSize)
+
+	if err != nil {
+		return MetaData{}, types.NewEngineError(
+			types.TABLE_READ_FILE_ERROR,
+			fmt.Sprintf("invalid file passed !"),
+		)
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &level)
+
+	if err != nil {
+		return MetaData{}, types.NewEngineError(
+			types.TABLE_READ_FILE_ERROR,
+			fmt.Sprintf("invalid file passed !"),
+		)
+	}
+
+	return MetaData{
+		indexBlockSize:  indexBlockSize,
+		dataBlockSize:   dataBlockSize,
+		bloomFilterSize: bloomFilterSize,
+		level:           level,
+	}, nil
+}
+
 func CreateNewTableToDisk(entries []types.Record, dir string) (*Table, error) {
 	tableIndex, bloomFilter, metaData, tableContent := Flush(entries)
 	fileName := fmt.Sprintf("%s//L%d_%s.data", dir, metaData.level, uuid.New().String())
@@ -53,6 +112,48 @@ func CreateNewTableToDisk(entries []types.Record, dir string) (*Table, error) {
 		boolFilter: bloomFilter,
 		filePath:   fileName,
 		metaData:   metaData,
+	}, nil
+}
+
+func ReadTablesFromDisk(fileName string) (*Table, error) {
+	fd, err := os.Open(fileName)
+
+	if err != nil {
+		return nil, types.NewEngineError(
+			types.TABLE_READ_FILE_ERROR,
+			fmt.Sprintf("table file read error : %s", err.Error()),
+		)
+	}
+
+	/*
+		1. read meta data chunk
+		2. read the index Block
+		3. read the bloom filter block
+	*/
+
+	metaData, err := ReadMetaDataFromFile(fd)
+
+	if err != nil {
+		return nil, err
+	}
+
+	indexBlock, err := NewIndexBlockFromFile(fd, metaData.indexBlockSize)
+
+	if err != nil {
+		return nil, err
+	}
+
+	bloomFilter, err := ReconstructBloomFilterFromFile(fd, m, p)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &Table{
+		metaData:   metaData,
+		boolFilter: &bloomFilter,
+		indexBlock: &indexBlock,
+		filePath:   fileName,
 	}, nil
 }
 

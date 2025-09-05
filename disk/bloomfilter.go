@@ -3,7 +3,9 @@ package disk
 import (
 	"LsmStorageEngine/types"
 	"encoding/binary"
+	"io"
 	"math"
+	"os"
 
 	"github.com/spaolacci/murmur3"
 )
@@ -35,7 +37,7 @@ func NewBloomFilterFromEntries(n float64, p float64, entries []types.Record) Blo
 
 	bf := BloomFilter{
 		bitSet:            types.NewBitVector(int(math.Ceil(m))),
-		bitSetSize:        int(m),
+		bitSetSize:        (int(math.Ceil(m)) + 7) / 8,
 		hashFunctionCount: int(k),
 	}
 
@@ -44,6 +46,25 @@ func NewBloomFilterFromEntries(n float64, p float64, entries []types.Record) Blo
 	}
 
 	return bf
+}
+
+func ReconstructBloomFilterFromFile(file *os.File, n float64, p float64) (BloomFilter, error) {
+	m := (-1 * n * math.Round(math.Log(p))) / math.Pow(math.Log(2), 2)
+	k := (m / n) * math.Log(2)
+
+	bitSet, err := types.NewBitSetVectorFromFile(file, (int(math.Ceil(m))+7)/8)
+
+	if err != nil {
+		return BloomFilter{}, err
+	}
+
+	bf := BloomFilter{
+		bitSet:            bitSet,
+		bitSetSize:        (int(math.Ceil(m)) + 7) / 8,
+		hashFunctionCount: int(k),
+	}
+
+	return bf, nil
 }
 
 func (bf *BloomFilter) getBufferSize() int {

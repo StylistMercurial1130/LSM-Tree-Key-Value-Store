@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"os"
 	"unsafe"
 )
 
@@ -39,6 +40,22 @@ func NewIndexBlock(d *Data) *TableIndex {
 	tableIndex.tableIndexsize = indexSize
 
 	return tableIndex
+}
+
+func NewIndexBlockFromFile(file *os.File, length int) (TableIndex, error) {
+	indexBuffer := make([]byte, length)
+	_, err := io.ReadFull(file, indexBuffer)
+
+	if err != nil && err != io.EOF {
+		return TableIndex{}, types.NewEngineError(
+			types.TABLE_READ_FILE_ERROR,
+			fmt.Sprintf("error reading file : %s", err.Error()),
+		)
+	}
+
+	reader := bytes.NewReader(indexBuffer)
+
+	return NewIndexBlockFromBuffer(reader)
 }
 
 func NewIndexBlockFromBuffer(buffer *bytes.Reader) (TableIndex, error) {
