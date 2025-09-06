@@ -1,7 +1,6 @@
 package types
 
 import (
-	"LsmStorageEngine/types"
 	"fmt"
 	"io"
 	"os"
@@ -31,8 +30,8 @@ func NewBitSetVectorFromFile(file *os.File, length int) (BitVector, error) {
 	_, err := io.ReadFull(file, bytes)
 
 	if err != nil && err != io.EOF {
-		return BitVector{}, types.NewEngineError(
-			types.TABLE_READ_FILE_ERROR,
+		return BitVector{}, NewEngineError(
+			TABLE_READ_FILE_ERROR,
 			fmt.Sprintf("file read error : %s", err.Error()),
 		)
 	}

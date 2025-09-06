@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"unsafe"
 
 	"github.com/google/uuid"
 )
@@ -125,12 +126,6 @@ func ReadTablesFromDisk(fileName string) (*Table, error) {
 		)
 	}
 
-	/*
-		1. read meta data chunk
-		2. read the index Block
-		3. read the bloom filter block
-	*/
-
 	metaData, err := ReadMetaDataFromFile(fd)
 
 	if err != nil {
@@ -213,7 +208,8 @@ func (t *Table) get(key []byte) (types.Record, error) {
 		)
 	}
 
-	_, err = fd.Seek(int64(t.metaData.indexBlockSize+tableFileOffset), io.SeekStart)
+	skipLengths := int(unsafe.Sizeof(0))*4 + t.metaData.bloomFilterSize + t.metaData.indexBlockSize
+	_, err = fd.Seek(int64(skipLengths+tableFileOffset), io.SeekStart)
 
 	if err != nil {
 		return types.Record{}, types.NewEngineError(
@@ -235,7 +231,8 @@ func (t *Table) get(key []byte) (types.Record, error) {
 }
 
 func (t *Table) getAllEntries() ([]types.Record, error) {
-	content, err := os.ReadFile(t.filePath)
+	fd, err := os.Open(t.filePath)
+	defer fd.Close()
 
 	if err != nil {
 		return nil, types.NewEngineError(
@@ -244,7 +241,19 @@ func (t *Table) getAllEntries() ([]types.Record, error) {
 		)
 	}
 
-	records, err := types.DecodeRecordsFromBuffer(bytes.NewReader(content))
+	skipLength := int(unsafe.Sizeof(0))*4 + t.metaData.bloomFilterSize + t.metaData.indexBlockSize
+	fd.Seek(int64(skipLength), io.SeekStart)
+
+	dataBlockBuffer, err := io.ReadAll(fd)
+
+	if err != nil {
+		return nil, types.NewEngineError(
+			types.TABLE_READ_FILE_ERROR,
+			fmt.Sprintf("file read error : %s", err.Error()),
+		)
+	}
+
+	records, err := types.DecodeRecordsFromBuffer(bytes.NewReader(dataBlockBuffer))
 	if err != nil {
 		return nil, types.NewEngineError(
 			types.BUFFER_READ_ERROR,

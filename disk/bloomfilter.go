@@ -3,7 +3,6 @@ package disk
 import (
 	"LsmStorageEngine/types"
 	"encoding/binary"
-	"io"
 	"math"
 	"os"
 
@@ -26,7 +25,7 @@ func NewBloomFilter(n float64, p float64) BloomFilter {
 
 	return BloomFilter{
 		bitSet:            types.NewBitVector(int(math.Ceil(m))),
-		bitSetSize:        int(m),
+		bitSetSize:        (int(math.Ceil(m)) + 7) / 8,
 		hashFunctionCount: int(k),
 	}
 }
