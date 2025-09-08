@@ -180,7 +180,7 @@ func Flush(entries []types.Record) (*TableIndex, *BloomFilter, MetaData, []byte)
 	binary.LittleEndian.PutUint64(s, uint64(metaData.level))
 	buffer = append(buffer, s...)
 
-	buffer = append(append(append(buffer, indexBlock.Encode()...), bloomFilter.Serialize()...), dataBlock.Encode()...)
+	buffer = append(append(append(buffer, bloomFilter.Serialize()...), indexBlock.Encode()...), dataBlock.Encode()...)
 
 	return indexBlock, &bloomFilter, metaData, buffer
 }

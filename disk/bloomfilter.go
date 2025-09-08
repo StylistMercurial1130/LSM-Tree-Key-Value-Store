@@ -2,7 +2,6 @@ package disk
 
 import (
 	"LsmStorageEngine/types"
-	"encoding/binary"
 	"math"
 	"os"
 
@@ -95,9 +94,6 @@ func (bf *BloomFilter) Serialize() []byte {
 	var serializedBf []byte
 	bitSet := bf.bitSet.Bytes()
 
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, uint64(len(bitSet)))
-	serializedBf = append(serializedBf, b...)
 	serializedBf = append(serializedBf, bitSet...)
 
 	return serializedBf
