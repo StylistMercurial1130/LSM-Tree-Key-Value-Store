@@ -189,6 +189,18 @@ func (t *Table) get(key []byte) (types.Record, error) {
 	// search index block
 	// find key location through fd
 	// read the entry
+	if containsKey, err := t.boolFilter.ContainsKey(key); err == nil && !containsKey {
+		return types.Record{}, types.NewEngineError(
+			types.TABLE_KEY_SEARCH_NOT_FOUND,
+			"key not found index table",
+		)
+	} else if err != nil {
+		return types.Record{}, types.NewEngineError(
+			types.BIT_VECTOR_OUT_OF_BOUNDS,
+			fmt.Sprintf("error searching bloom filter : %s", err.Error()),
+		)
+	}
+
 	tableFileOffset, found := t.indexBlock.lookUpKeyOffset(key)
 
 	if !found {

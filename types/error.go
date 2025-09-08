@@ -13,6 +13,7 @@ const (
 	INDEX_BLOCK_DECODE_ERROR   = 9
 	LEVEL_GET_ERROR            = 10
 	BIT_VECTOR_OUT_OF_BOUNDS   = 11
+	BIT_VECTOR_SEARCH_ERROR    = 12
 )
 
 type EngineError struct {
