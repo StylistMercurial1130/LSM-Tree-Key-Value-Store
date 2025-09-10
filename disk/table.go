@@ -21,10 +21,10 @@ const (
 )
 
 type Table struct {
-	indexBlock *TableIndex
-	boolFilter *BloomFilter
-	filePath   string
-	metaData   MetaData
+	indexBlock  *TableIndex
+	bloomFilter *BloomFilter
+	filePath    string
+	metaData    MetaData
 }
 
 type MetaData struct {
@@ -109,10 +109,10 @@ func CreateNewTableToDisk(entries []types.Record, dir string) (*Table, error) {
 	fd.Write(tableContent)
 
 	return &Table{
-		indexBlock: tableIndex,
-		boolFilter: bloomFilter,
-		filePath:   fileName,
-		metaData:   metaData,
+		indexBlock:  tableIndex,
+		bloomFilter: bloomFilter,
+		filePath:    fileName,
+		metaData:    metaData,
 	}, nil
 }
 
@@ -145,10 +145,10 @@ func ReadTablesFromDisk(fileName string) (*Table, error) {
 	}
 
 	return &Table{
-		metaData:   metaData,
-		boolFilter: &bloomFilter,
-		indexBlock: &indexBlock,
-		filePath:   fileName,
+		metaData:    metaData,
+		bloomFilter: &bloomFilter,
+		indexBlock:  &indexBlock,
+		filePath:    fileName,
 	}, nil
 }
 
@@ -189,14 +189,14 @@ func (t *Table) get(key []byte) (types.Record, error) {
 	// search index block
 	// find key location through fd
 	// read the entry
-	if containsKey, err := t.boolFilter.ContainsKey(key); err == nil && !containsKey {
+	if containsKey, err := t.bloomFilter.ContainsKey(key); err == nil && !containsKey {
 		return types.Record{}, types.NewEngineError(
 			types.TABLE_KEY_SEARCH_NOT_FOUND,
 			"key not found index table",
 		)
 	} else if err != nil {
 		return types.Record{}, types.NewEngineError(
-			types.BIT_VECTOR_OUT_OF_BOUNDS,
+			types.BIT_VECTOR_SEARCH_ERROR,
 			fmt.Sprintf("error searching bloom filter : %s", err.Error()),
 		)
 	}
