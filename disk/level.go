@@ -57,7 +57,7 @@ func (l *Level) getRange(start, end int) ([]*Table, error) {
 }
 
 func (l *Level) push(table *Table) {
-	l.tables = append(l.tables, table)
+	l.tables = append([]*Table{table}, l.tables...)
 }
 
 func (l *Level) delete(comparator func(table *Table) bool) error {

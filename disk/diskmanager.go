@@ -99,12 +99,12 @@ func (dm *DiskManager) compact(levelIndex int) error {
 		return err
 	}
 
-	dm.levels[levelIndex].delete(func(table Table) bool {
+	dm.levels[levelIndex].delete(func(table *Table) bool {
 		return strings.EqualFold(table.filePath, lnTables.filePath)
 	})
 
 	for _, table := range nextLevelOverlappingTables {
-		dm.levels[levelIndex+1].delete(func(_table Table) bool {
+		dm.levels[levelIndex+1].delete(func(_table *Table) bool {
 			return strings.EqualFold(_table.filePath, table.filePath)
 		})
 	}
@@ -150,15 +150,15 @@ func (dm *DiskManager) compactL0() error {
 
 		// remove tables from L0 and L1
 		for _, table := range l0OverlappingTables {
-			dm.levels[0].delete(func(_table Table) bool {
-				return strings.EqualFold(table.filePath, _table.filePath)
+			dm.levels[0].delete(func(_table *Table) bool {
+				return strings.EqualFold(_table.filePath, table.filePath)
 			})
 		}
 
 		// push the mergedTable into L0
 		for _, table := range l1OverlappingTables {
-			dm.levels[1].delete(func(_table Table) bool {
-				return strings.EqualFold(table.filePath, _table.filePath)
+			dm.levels[1].delete(func(_table *Table) bool {
+				return strings.EqualFold(_table.filePath, table.filePath)
 			})
 		}
 
