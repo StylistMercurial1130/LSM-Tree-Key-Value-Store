@@ -276,6 +276,19 @@ func (t *Table) getAllEntries() ([]types.Record, error) {
 	return records, nil
 }
 
+func (t *Table) Delete() error {
+	err := os.Remove(t.filePath)
+
+	if err != nil {
+		return types.NewEngineError(
+			types.TABLE_FILE_DELETE_ERROR,
+			fmt.Sprintf("table file delete error : %s", err.Error()),
+		)
+	}
+
+	return nil
+}
+
 func (t *Table) GetBoundaries() ([]byte, []byte) {
 	return t.indexBlock.lookUpTable[0].key, t.indexBlock.lookUpTable[len(t.indexBlock.lookUpTable)-1].key
 }
