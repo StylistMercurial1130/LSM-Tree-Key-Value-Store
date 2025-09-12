@@ -170,3 +170,36 @@ func TestDeleteLevelItems(t *testing.T) {
 
 	assert.Equal(t, level.size(), len-1)
 }
+
+func TestGetOverlap(t *testing.T) {
+	level := Level{
+		tables: make([]*Table, 0),
+	}
+
+	_, err := os.Stat(dataDir)
+	if os.IsNotExist(err) {
+		err = os.Mkdir(dataDir, 0755)
+
+		if err != nil {
+			t.Errorf("test failed due to data dir creation error : %s", err.Error())
+			return
+		}
+	}
+
+	for _, d := range data {
+		table, err := d.generator(d.records)
+
+		if err != nil {
+			t.Errorf("TestGenerateLevel failed due to : %s", err.Error())
+			break
+		}
+
+		level.push(table)
+	}
+
+	tables, start, end := level.GetOverlappingTables()
+
+	assert.Equal(t, start, toBytes("k9"))
+	assert.Equal(t, end, toBytes("k12"))
+	assert.Equal(t, tables, []*Table{level.tables[0]})
+}

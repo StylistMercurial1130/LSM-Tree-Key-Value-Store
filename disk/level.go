@@ -94,7 +94,8 @@ func getOverlap(l *Level, start, end []byte) []*Table {
 		startKey := table.indexBlock.lookUpTable[0].key
 		endKey := table.indexBlock.lookUpTable[len(table.indexBlock.lookUpTable)-1].key
 
-		if bytes.Compare(startKey, end) == -1 && bytes.Compare(endKey, start) == -1 {
+		if bytes.Compare(startKey, end) == -1 && bytes.Compare(endKey, start) == 1 ||
+			bytes.Equal(startKey, start) && bytes.Equal(endKey, end) {
 			overlappingTables = append(overlappingTables, table)
 		}
 	}
@@ -108,7 +109,7 @@ func getOverlap(l *Level, start, end []byte) []*Table {
 	return overlappingTables
 }
 
-func (l *Level) getOverlappingTables() ([]*Table, []byte, []byte) {
+func (l *Level) GetOverlappingTables() ([]*Table, []byte, []byte) {
 	if len(l.tables) == 0 {
 		return nil, nil, nil
 	}
