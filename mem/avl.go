@@ -154,6 +154,14 @@ func (t *AvlTree) insert(n *node, current *node) *node {
 		return current
 	}
 
+	if bytes.Equal(current.key, n.key) {
+		current.key = n.key
+		current.value = n.value
+		current.tombStone = n.tombStone
+
+		return current
+	}
+
 	if bytes.Compare(n.key, current.key) < 0 {
 		current.leftNode = t.insert(n, current.leftNode)
 	} else {

@@ -67,7 +67,7 @@ func (dm *DiskManager) compact(levelIndex int) error {
 		dm.levels = append(dm.levels, &Level{})
 	}
 
-	lnTables, err := dm.levels[levelIndex].get(0)
+	lnTables, err := dm.levels[levelIndex].Get(0)
 	if err != nil {
 		return err
 	}
@@ -122,7 +122,11 @@ func (dm *DiskManager) compactL0() error {
 		)
 	}
 
-	if l0OverlappingTables, start, end := dm.levels[0].getOverlappingTables(); l0OverlappingTables != nil {
+	l0OverlappingTables := dm.levels[0].GetAll()
+	if l0OverlappingTables != nil {
+		start, _ := l0OverlappingTables[0].GetBoundaries()
+		_, end := l0OverlappingTables[len(l0OverlappingTables)-1].GetBoundaries()
+
 		l1OverlappingTables := dm.levels[1].getOverlappingTablesInRange(start, end)
 		// perform k way merge here
 		var t [][]*Table

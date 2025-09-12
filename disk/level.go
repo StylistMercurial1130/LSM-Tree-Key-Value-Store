@@ -10,7 +10,7 @@ type Level struct {
 	tables []*Table
 }
 
-func (l *Level) get(index int) (*Table, error) {
+func (l *Level) Get(index int) (*Table, error) {
 	if index > l.size() || index < 0 {
 		return nil, types.NewEngineError(
 			types.LEVEL_GET_ERROR,
@@ -19,6 +19,14 @@ func (l *Level) get(index int) (*Table, error) {
 	}
 
 	return l.tables[index], nil
+}
+
+func (l *Level) GetAll() []*Table {
+	return l.tables
+}
+
+func (l *Level) size() int {
+	return len(l.tables)
 }
 
 func (l *Level) ScanAllTables(key []byte) (types.Record, error) {
@@ -80,10 +88,6 @@ func (l *Level) delete(comparator func(table *Table) bool) error {
 	return nil
 }
 
-func (l *Level) size() int {
-	return len(l.tables)
-}
-
 func getOverlap(l *Level, start, end []byte) []*Table {
 	var overlappingTables []*Table
 	for _, table := range l.tables {
@@ -92,6 +96,12 @@ func getOverlap(l *Level, start, end []byte) []*Table {
 
 		if bytes.Compare(startKey, end) == -1 && bytes.Compare(endKey, start) == -1 {
 			overlappingTables = append(overlappingTables, table)
+		}
+	}
+
+	if len(overlappingTables) == 0 {
+		if l.size() != 0 {
+			return l.tables
 		}
 	}
 

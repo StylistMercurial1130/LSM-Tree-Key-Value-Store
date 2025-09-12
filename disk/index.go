@@ -138,7 +138,7 @@ func (ti *TableIndex) lookUpKeyOffset(key []byte) (int, bool) {
 	start := 0
 	end := len(ti.lookUpTable) - 1
 
-	for start < end {
+	for start <= end {
 		mid := start + ((end - start) / 2)
 		compare := bytes.Compare(key, ti.lookUpTable[mid].key)
 

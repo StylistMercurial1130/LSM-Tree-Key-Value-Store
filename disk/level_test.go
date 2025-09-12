@@ -97,3 +97,76 @@ func TestGenerateLevel(t *testing.T) {
 		t.Errorf("test failed due to data dir deleting error : %s", err.Error())
 	}
 }
+
+func TestGetKeyFromLevel(t *testing.T) {
+	level := Level{
+		tables: make([]*Table, 0),
+	}
+
+	_, err := os.Stat(dataDir)
+	if os.IsNotExist(err) {
+		err = os.Mkdir(dataDir, 0755)
+
+		if err != nil {
+			t.Errorf("test failed due to data dir creation error : %s", err.Error())
+			return
+		}
+	}
+
+	for _, d := range data {
+		table, err := d.generator(d.records)
+
+		if err != nil {
+			t.Errorf("TestGenerateLevel failed due to : %s", err.Error())
+			break
+		}
+
+		level.push(table)
+	}
+
+	record, err := level.ScanAllTables(toBytes("k5"))
+
+	if err != nil {
+		t.Errorf("test failed due to data dir creation error : %s", err.Error())
+		return
+	}
+
+	assert.Equal(t, record.Key, toBytes("k5"))
+	assert.Equal(t, record.Value, toBytes("v5"))
+}
+
+func TestDeleteLevelItems(t *testing.T) {
+	level := Level{
+		tables: make([]*Table, 0),
+	}
+
+	_, err := os.Stat(dataDir)
+	if os.IsNotExist(err) {
+		err = os.Mkdir(dataDir, 0755)
+
+		if err != nil {
+			t.Errorf("test failed due to data dir creation error : %s", err.Error())
+			return
+		}
+	}
+
+	for _, d := range data {
+		table, err := d.generator(d.records)
+
+		if err != nil {
+			t.Errorf("TestGenerateLevel failed due to : %s", err.Error())
+			break
+		}
+
+		level.push(table)
+	}
+
+	len := level.size()
+	level.delete(func(table *Table) bool {
+		_, err := table.get(toBytes("k6"))
+
+		return err == nil
+	})
+
+	assert.Equal(t, level.size(), len-1)
+}

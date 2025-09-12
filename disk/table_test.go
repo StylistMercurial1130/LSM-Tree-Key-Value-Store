@@ -126,4 +126,10 @@ func TestGetBoundaries(t *testing.T) {
 
 	assert.Equal(t, start, toBytes("k1"))
 	assert.Equal(t, end, toBytes("k4"))
+
+	err = os.RemoveAll(dataDir)
+
+	if err != nil {
+		t.Errorf("test failed due to data dir deleting error : %s", err.Error())
+	}
 }
