@@ -2,6 +2,7 @@ package disk
 
 import (
 	"LsmStorageEngine/types"
+	"fmt"
 	"math"
 	"strings"
 )
@@ -210,5 +211,19 @@ func merge(records [][]types.Record) []types.Record {
 
 // get a key from the disk if not found or some arbitrary error return valid error
 func (dm *DiskManager) Get(key []byte) (types.Record, error) {
-	return types.Record{}, nil
+	for _, level := range dm.levels {
+		record, err := level.ScanAllTables(key)
+
+		if err != nil &&
+			err.(*types.EngineError).GetErrorCode() != types.TABLE_KEY_SEARCH_NOT_FOUND {
+			return types.Record{}, err
+		} else if err == nil {
+			return record, nil
+		}
+	}
+
+	return types.Record{}, types.NewEngineError(
+		types.DISKMANAGER_KEY_NOT_FOUND_ERROR,
+		fmt.Sprintf("key (%x) not found in any level!", key),
+	)
 }

@@ -16,6 +16,7 @@ const (
 	BIT_VECTOR_OUT_OF_BOUNDS            = 12
 	BIT_VECTOR_SEARCH_ERROR             = 13
 	TABLE_FILE_DELETE_ERROR             = 14
+	DISKMANAGER_KEY_NOT_FOUND_ERROR     = 15
 )
 
 type EngineError struct {

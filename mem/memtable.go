@@ -38,7 +38,28 @@ func (m *Memtable) Put(r types.Record) error {
 }
 
 func (m *Memtable) Delete(key []byte) {
+	m.mtx.Lock()
 
+	record, err := m.avl.Search(key)
+
+	if err != nil {
+		if status, ok := err.(*types.EngineError); ok {
+			if status.GetErrorCode() == AVL_KEY_DOES_NOT_EXIST {
+				record, err = m.dm.Get(key)
+
+				if err != nil {
+					record.TombStone = true
+					m.Put(record)
+				}
+			}
+		}
+	} else {
+		if !record.TombStone {
+			m.avl.Insert(record.Key, record.Value, true)
+		}
+	}
+
+	m.mtx.Unlock()
 }
 
 func (m *Memtable) Get(key []byte) (types.Record, error) {
