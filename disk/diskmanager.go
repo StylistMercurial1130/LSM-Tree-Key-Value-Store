@@ -27,7 +27,6 @@ func CreateDiskManager(levelRatio int, l0Target int, dir string) *DiskManager {
 func (dm *DiskManager) Flush(records []types.Record) error {
 	table, err := CreateNewTableToDisk(records, dm.dir)
 	if err != nil {
-		// for now just return err, will need to handle this properly
 		return err
 	}
 
@@ -45,16 +44,9 @@ func (dm *DiskManager) Flush(records []types.Record) error {
 func (dm *DiskManager) checkAndCompact() error {
 	for levelIndex, level := range dm.levels {
 		if level.size() > dm.l0Target*int(math.Pow(float64(dm.levelRatio), float64(levelIndex))) {
-			if levelIndex == 0 {
-				err := dm.compactL0()
-				if err != nil {
-					return err
-				}
-			} else {
-				err := dm.compact(levelIndex)
-				if err != nil {
-					return err
-				}
+			err := dm.compact(levelIndex)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -68,18 +60,13 @@ func (dm *DiskManager) compact(levelIndex int) error {
 		dm.levels = append(dm.levels, &Level{})
 	}
 
-	lnTables, err := dm.levels[levelIndex].Get(0)
-	if err != nil {
-		return err
-	}
+	lnTables := dm.levels[levelIndex].GetAll()
 
-	start, end := lnTables.GetBoundaries()
-
-	nextLevelOverlappingTables := dm.levels[levelIndex+1].getOverlappingTablesInRange(start, end)
+	nextLevelTables := dm.levels[levelIndex+1].GetAll()
 
 	var t [][]*Table
-	t = append(t, []*Table{lnTables})
-	t = append(t, nextLevelOverlappingTables)
+	t = append(t, lnTables)
+	t = append(t, nextLevelTables)
 
 	var r [][]types.Record
 	for _, tables := range t {
@@ -100,75 +87,19 @@ func (dm *DiskManager) compact(levelIndex int) error {
 		return err
 	}
 
-	dm.levels[levelIndex].delete(func(table *Table) bool {
-		return strings.EqualFold(table.filePath, lnTables.filePath)
-	})
+	for _, lntable := range lnTables {
+		dm.levels[levelIndex].delete(func(table *Table) bool {
+			return strings.EqualFold(table.filePath, lntable.filePath)
+		})
+	}
 
-	for _, table := range nextLevelOverlappingTables {
+	for _, table := range nextLevelTables {
 		dm.levels[levelIndex+1].delete(func(_table *Table) bool {
 			return strings.EqualFold(_table.filePath, table.filePath)
 		})
 	}
 
 	dm.levels[levelIndex+1].push(mergedTables)
-
-	return nil
-}
-
-func (dm *DiskManager) compactL0() error {
-	if dm.levels[0] == nil || dm.levels[0].size() == 0 {
-		return types.NewEngineError(
-			types.TABLE_MERGE_ERROR,
-			"level 0 is empty",
-		)
-	}
-
-	l0OverlappingTables := dm.levels[0].GetAll()
-	if l0OverlappingTables != nil {
-		start, _ := l0OverlappingTables[0].GetBoundaries()
-		_, end := l0OverlappingTables[len(l0OverlappingTables)-1].GetBoundaries()
-
-		l1OverlappingTables := dm.levels[1].getOverlappingTablesInRange(start, end)
-		// perform k way merge here
-		var t [][]*Table
-		t = append(t, l0OverlappingTables)
-		t = append(t, l1OverlappingTables)
-
-		var r [][]types.Record
-		for _, tables := range t {
-			for _, table := range tables {
-				record, err := table.getAllEntries()
-				if err != nil {
-					panic(err)
-				}
-
-				r = append(r, record)
-			}
-		}
-
-		mergedRecords := merge(r)
-		mergedTables, err := CreateNewTableToDisk(mergedRecords, dm.dir)
-
-		if err != nil {
-			return err
-		}
-
-		// remove tables from L0 and L1
-		for _, table := range l0OverlappingTables {
-			dm.levels[0].delete(func(_table *Table) bool {
-				return strings.EqualFold(_table.filePath, table.filePath)
-			})
-		}
-
-		// push the mergedTable into L0
-		for _, table := range l1OverlappingTables {
-			dm.levels[1].delete(func(_table *Table) bool {
-				return strings.EqualFold(_table.filePath, table.filePath)
-			})
-		}
-
-		dm.levels[1].push(mergedTables)
-	}
 
 	return nil
 }
