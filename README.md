@@ -102,6 +102,3 @@ go test ./types
 - Add new compaction strategies in the disk layer.
 - Support range queries or batch operations.
 - Integrate with network protocols for distributed storage.
-
-**Author:**  
-Karthik
