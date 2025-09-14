@@ -109,6 +109,11 @@ func (t *AvlTree) InsertRecord(r types.Record) {
 	t.Insert(r.Key, r.Value, r.TombStone)
 }
 
+func (t *AvlTree) Clear() {
+	t.rootNode = nil
+	t.height = 0
+}
+
 func (t *AvlTree) Insert(key []byte, value []byte, tombStone bool) {
 	if t.rootNode == nil {
 		t.rootNode = newNode(key, value, tombStone)

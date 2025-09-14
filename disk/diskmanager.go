@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 )
 
 type DiskManager struct {
@@ -12,6 +13,7 @@ type DiskManager struct {
 	levelRatio int
 	l0Target   int
 	dir        string
+	mu         sync.RWMutex
 }
 
 func CreateDiskManager(levelRatio int, l0Target int, dir string) *DiskManager {
@@ -25,6 +27,9 @@ func CreateDiskManager(levelRatio int, l0Target int, dir string) *DiskManager {
 
 // flushing data to disk and trigger compaction
 func (dm *DiskManager) Flush(records []types.Record) error {
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
+
 	table, err := CreateNewTableToDisk(records, dm.dir)
 	if err != nil {
 		return err
@@ -140,8 +145,10 @@ func merge(records [][]types.Record) []types.Record {
 	return merged
 }
 
-// get a key from the disk if not found or some arbitrary error return valid error
 func (dm *DiskManager) Get(key []byte) (types.Record, error) {
+	dm.mu.RLock()
+	defer dm.mu.RUnlock()
+
 	for _, level := range dm.levels {
 		record, err := level.ScanAllTables(key)
 
