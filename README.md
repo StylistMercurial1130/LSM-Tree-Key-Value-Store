@@ -103,11 +103,5 @@ go test ./types
 - Support range queries or batch operations.
 - Integrate with network protocols for distributed storage.
 
-## License
-
-MIT License
-
----
-
 **Author:**  
 Karthik
